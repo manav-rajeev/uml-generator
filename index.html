@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UML Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.7/joint.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="top-nav" aria-label="Main navigation">
+      <div class="brand">
+        <span class="brand-icon"><i class="fa-solid fa-diagram-project"></i></span>
+        <div>
+          <h1>UML Generator</h1>
+          <p>Professional multi-diagram editor</p>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <label for="diagramType" class="nav-label">Diagram Type</label>
+        <select id="diagramType" aria-label="Select UML diagram type">
+          <option value="class">Class Diagram</option>
+          <option value="usecase">Use Case Diagram</option>
+          <option value="activity">Activity Diagram</option>
+          <option value="sequence">Sequence Diagram</option>
+        </select>
+        <button id="themeToggleBtn" class="theme-toggle" aria-label="Toggle dark mode" aria-pressed="false" title="Toggle theme">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </nav>
+
+    <main class="workspace">
+      <section class="input-panel card">
+        <header class="panel-header">
+          <h2>Input</h2>
+          <p>Describe your UML logic in plain text.</p>
+        </header>
+
+        <div class="type-chips" aria-label="Selected diagram type">
+          <button class="type-chip active" data-diagram-type="class">📦 Class</button>
+          <button class="type-chip" data-diagram-type="usecase">👤 Use Case</button>
+          <button class="type-chip" data-diagram-type="activity">🔄 Activity</button>
+          <button class="type-chip" data-diagram-type="sequence">📡 Sequence</button>
+        </div>
+
+        <label for="description">Diagram Description</label>
+        <textarea id="description" placeholder="Example:
+class User(id,name){login(),logout()}
+Admin extends User
+User uses AuthService"></textarea>
+
+        <div class="input-actions">
+          <button id="generateBtn" class="primary large">Generate Diagram</button>
+          <button id="loadTemplateBtn">Load Template</button>
+        </div>
+
+        <p id="statusMessage" class="status-message" aria-live="polite">Ready.</p>
+      </section>
+
+      <section class="canvas-panel card">
+        <div class="toolbar" aria-label="diagram toolbar">
+          <button id="clearBtn"><i class="fa-solid fa-eraser"></i> Clear</button>
+          <button id="saveBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+          <button id="exportBtn"><i class="fa-solid fa-image"></i> Export as PNG</button>
+          <button id="saveJsonBtn"><i class="fa-solid fa-file-code"></i> Save JSON</button>
+          <button id="loadJsonBtn"><i class="fa-solid fa-file-import"></i> Load JSON</button>
+          <input id="jsonFileInput" type="file" accept="application/json,.json" hidden />
+          <button id="connectBtn"><i class="fa-solid fa-link"></i> Connect</button>
+          <button id="editBtn"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button id="deleteBtn"><i class="fa-solid fa-trash"></i> Delete</button>
+          <div class="zoom-controls">
+            <button id="zoomOutBtn" title="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+            <button id="zoomInBtn" title="Zoom in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+            <button id="resetZoomBtn" title="Reset zoom"><i class="fa-solid fa-expand"></i></button>
+          </div>
+        </div>
+
+        <div class="canvas-card">
+          <div id="paper"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.6.0/backbone-min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.7/joint.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="script.js"></script>
+</body>
+</html>
