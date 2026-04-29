@@ -37,8 +37,8 @@
   const paper = new joint.dia.Paper({
     el: document.getElementById('paper'),
     model: graph,
-    width: 1400,
-    height: 800,
+    width: '100%',
+    height: '100%',
     gridSize: 10,
     drawGrid: { name: 'mesh' },
     background: { color: 'transparent' },
@@ -215,6 +215,155 @@
         for (let i = 0; i < cells.length - 1; i += 1) makeLink(cells[i], cells[i + 1]).addTo(graph);
       }
     },
+
+    package: {
+      template: 'package UserModule\npackage AuthModule\nUserModule depends AuthModule',
+      parse(text) {
+        const packages = new Set();
+        const links = [];
+        splitStatements(text).forEach((line) => {
+          const packageMatch = line.match(/^package\s+([\w-]+)$/i);
+          const dependsMatch = line.match(/^([\w-]+)\s+depends\s+([\w-]+)$/i);
+          if (packageMatch) {
+            packages.add(packageMatch[1]);
+            return;
+          }
+          if (dependsMatch) {
+            const [, from, to] = dependsMatch;
+            packages.add(from);
+            packages.add(to);
+            links.push({ from, to, label: 'depends' });
+          }
+        });
+        return { packages: [...packages], links };
+      },
+      render(parsed) {
+        graph.clear();
+        const packageMap = {};
+        parsed.packages.forEach((name, i) => {
+          const x = 70 + (i % 3) * 280;
+          const y = 60 + Math.floor(i / 3) * 180;
+
+          const tab = new joint.shapes.standard.Rectangle();
+          tab.position(x, y);
+          tab.resize(90, 24);
+          tab.attr({ body: { fill: '#fff2cc', stroke: '#b08900', strokeWidth: 2, rx: 4, ry: 4 }, label: { text: 'package', fontSize: 10 } });
+          tab.addTo(graph);
+
+          const pkg = new joint.shapes.standard.Rectangle();
+          pkg.position(x, y + 20);
+          pkg.resize(220, 110);
+          pkg.attr({ body: { fill: '#fff9e6', stroke: '#b08900', strokeWidth: 2, rx: 8, ry: 8 }, label: { text: name, fontSize: 13 } });
+          pkg.addTo(graph);
+          packageMap[name] = pkg;
+        });
+
+        parsed.links.forEach((link) => {
+          if (!packageMap[link.from] || !packageMap[link.to]) return;
+          makeLink(packageMap[link.from], packageMap[link.to], { label: link.label }).addTo(graph);
+        });
+      }
+    },
+
+    component: {
+      template: 'component UserInterface\ncomponent AuthService\ncomponent Database\nUserInterface connects AuthService\nAuthService connects Database',
+      parse(text) {
+        const components = new Set();
+        const links = [];
+        splitStatements(text).forEach((line) => {
+          const c = line.match(/^component\s+([\w-]+)$/i);
+          const l = line.match(/^([\w-]+)\s+connects\s+([\w-]+)$/i);
+          if (c) return components.add(c[1]);
+          if (l) {
+            const [, from, to] = l;
+            components.add(from);
+            components.add(to);
+            links.push({ from, to, label: 'connects' });
+          }
+        });
+        return { components: [...components], links };
+      },
+      render(parsed) {
+        graph.clear();
+        const map = {};
+        parsed.components.forEach((name, i) => {
+          const x = 70 + (i % 3) * 280;
+          const y = 60 + Math.floor(i / 3) * 170;
+
+          const shape = new joint.shapes.standard.Rectangle();
+          shape.position(x, y);
+          shape.resize(230, 110);
+          shape.attr({ body: { fill: '#e8f5ff', stroke: '#0b6fa4', strokeWidth: 2, rx: 8, ry: 8 }, label: { text: `«component»\n${name}`, fontSize: 12 } });
+          shape.addTo(graph);
+
+          const icon1 = new joint.shapes.standard.Rectangle();
+          icon1.position(x + 185, y + 12);
+          icon1.resize(18, 12);
+          icon1.attr({ body: { fill: '#c7e9ff', stroke: '#0b6fa4', strokeWidth: 1 }, label: { text: '' } });
+          icon1.addTo(graph);
+
+          const icon2 = new joint.shapes.standard.Rectangle();
+          icon2.position(x + 185, y + 30);
+          icon2.resize(18, 12);
+          icon2.attr({ body: { fill: '#c7e9ff', stroke: '#0b6fa4', strokeWidth: 1 }, label: { text: '' } });
+          icon2.addTo(graph);
+
+          map[name] = shape;
+        });
+
+        parsed.links.forEach((link) => {
+          if (!map[link.from] || !map[link.to]) return;
+          makeLink(map[link.from], map[link.to], { label: link.label }).addTo(graph);
+        });
+      }
+    },
+
+    deployment: {
+      template: 'node Client\nnode Server\nnode Database\nClient connects Server\nServer connects Database',
+      parse(text) {
+        const nodes = new Set();
+        const links = [];
+        splitStatements(text).forEach((line) => {
+          const n = line.match(/^node\s+([\w-]+)$/i);
+          const l = line.match(/^([\w-]+)\s+connects\s+([\w-]+)$/i);
+          if (n) return nodes.add(n[1]);
+          if (l) {
+            const [, from, to] = l;
+            nodes.add(from);
+            nodes.add(to);
+            links.push({ from, to, label: 'connects' });
+          }
+        });
+        return { nodes: [...nodes], links };
+      },
+      render(parsed) {
+        graph.clear();
+        const map = {};
+        parsed.nodes.forEach((name, i) => {
+          const x = 80 + (i % 3) * 280;
+          const y = 70 + Math.floor(i / 3) * 180;
+
+          const back = new joint.shapes.standard.Rectangle();
+          back.position(x + 14, y - 12);
+          back.resize(220, 100);
+          back.attr({ body: { fill: '#d8ecff', stroke: '#2d5f9a', strokeWidth: 1.5, rx: 6, ry: 6 }, label: { text: '' } });
+          back.addTo(graph);
+
+          const front = new joint.shapes.standard.Rectangle();
+          front.position(x, y);
+          front.resize(220, 100);
+          front.attr({ body: { fill: '#eef6ff', stroke: '#2d5f9a', strokeWidth: 2, rx: 8, ry: 8 }, label: { text: `«node»\n${name}`, fontSize: 12 } });
+          front.addTo(graph);
+
+          map[name] = front;
+        });
+
+        parsed.links.forEach((link) => {
+          if (!map[link.from] || !map[link.to]) return;
+          makeLink(map[link.from], map[link.to], { label: link.label }).addTo(graph);
+        });
+      }
+    },
     sequence: {
       template: 'User sends login request to AuthService\nAuthService calls verify credentials on Database\nDatabase sends result to AuthService\nAuthService sends token to User',
       parse(text) {
@@ -258,9 +407,12 @@
   function generateUseCaseDiagram(text) { DiagramModules.usecase.render(DiagramModules.usecase.parse(text)); }
   function generateActivityDiagram(text) { DiagramModules.activity.render(DiagramModules.activity.parse(text)); }
   function generateSequenceDiagram(text) { DiagramModules.sequence.render(DiagramModules.sequence.parse(text)); }
+  function generatePackageDiagram(text) { DiagramModules.package.render(DiagramModules.package.parse(text)); }
+  function generateComponentDiagram(text) { DiagramModules.component.render(DiagramModules.component.parse(text)); }
+  function generateDeploymentDiagram(text) { DiagramModules.deployment.render(DiagramModules.deployment.parse(text)); }
 
   function generateDiagramByType(type, text) {
-    ({ class: generateClassDiagram, usecase: generateUseCaseDiagram, activity: generateActivityDiagram, sequence: generateSequenceDiagram }[type] || generateClassDiagram)(text);
+    ({ class: generateClassDiagram, usecase: generateUseCaseDiagram, activity: generateActivityDiagram, sequence: generateSequenceDiagram, package: generatePackageDiagram, component: generateComponentDiagram, deployment: generateDeploymentDiagram }[type] || generateClassDiagram)(text);
   }
 
   function setActiveType(type) {
