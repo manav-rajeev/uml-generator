@@ -134,6 +134,8 @@
         });
       }
     },
+
+    // FIX 3: Use Case — spread actors vertically per their own use cases to reduce crossing arrows
     usecase: {
       template: 'actor Customer\nactor Admin\nCustomer performs place order\nCustomer performs view cart\nAdmin performs manage inventory',
       parse(text) {
@@ -156,34 +158,89 @@
         graph.clear();
         const actorMap = {};
         const useCaseMap = {};
-        parsed.actors.forEach((actor, i) => {
-          const shape = new joint.shapes.standard.Circle();
-          shape.position(70, 90 + i * 120); shape.resize(70, 70);
-          shape.attr({ body: { fill: '#fff4db', stroke: '#b37b00', strokeWidth: 2 }, label: { text: actor, fontSize: 12 } });
-          shape.addTo(graph); actorMap[actor] = shape;
+
+        // Build a map of actor -> list of use cases (in order they appear)
+        const actorUseCases = {};
+        parsed.actors.forEach((a) => { actorUseCases[a] = []; });
+        parsed.links.forEach(({ actor, useCase }) => {
+          if (!actorUseCases[actor]) actorUseCases[actor] = [];
+          if (!actorUseCases[actor].includes(useCase)) actorUseCases[actor].push(useCase);
         });
-        parsed.useCases.forEach((uc, i) => {
+
+        // Position each actor vertically centred on their use cases
+        const UC_HEIGHT = 95;   // vertical spacing between use cases
+        const UC_X = 330;       // x position for use case ellipses
+        const ACTOR_X = 60;     // x position for actor circles
+
+        // Assign a vertical slot to every unique use case, grouped by first actor
+        const ucPositions = {};  // useCase -> y centre
+        let currentY = 60;
+        parsed.actors.forEach((actor) => {
+          const ucs = actorUseCases[actor] || [];
+          ucs.forEach((uc) => {
+            if (ucPositions[uc] === undefined) {
+              ucPositions[uc] = currentY;
+              currentY += UC_HEIGHT;
+            }
+          });
+        });
+
+        // Also slot any use cases not yet assigned (shouldn't happen normally)
+        parsed.useCases.forEach((uc) => {
+          if (ucPositions[uc] === undefined) {
+            ucPositions[uc] = currentY;
+            currentY += UC_HEIGHT;
+          }
+        });
+
+        // Draw use cases
+        parsed.useCases.forEach((uc) => {
+          const y = ucPositions[uc];
           const shape = new joint.shapes.standard.Ellipse();
-          shape.position(320, 70 + i * 105); shape.resize(230, 78);
+          shape.position(UC_X, y); shape.resize(230, 75);
           shape.attr({ body: { fill: '#ecffef', stroke: '#2b8a3e', strokeWidth: 2 }, label: { text: uc, fontSize: 12 } });
-          shape.addTo(graph); useCaseMap[uc] = shape;
+          shape.addTo(graph);
+          useCaseMap[uc] = shape;
         });
+
+        // Position each actor vertically centred on its use cases
+        parsed.actors.forEach((actor, i) => {
+          const ucs = actorUseCases[actor] || [];
+          let actorY;
+          if (ucs.length > 0) {
+            const ys = ucs.map((uc) => ucPositions[uc] + 37); // centre of ellipse
+            actorY = ys.reduce((a, b) => a + b, 0) / ys.length - 35; // centre actor circle
+          } else {
+            actorY = 90 + i * 120;
+          }
+          const shape = new joint.shapes.standard.Circle();
+          shape.position(ACTOR_X, actorY); shape.resize(70, 70);
+          shape.attr({ body: { fill: '#fff4db', stroke: '#b37b00', strokeWidth: 2 }, label: { text: actor, fontSize: 12 } });
+          shape.addTo(graph);
+          actorMap[actor] = shape;
+        });
+
+        // Draw links
         parsed.links.forEach((item) => {
           if (!actorMap[item.actor] || !useCaseMap[item.useCase]) return;
           makeLink(actorMap[item.actor], useCaseMap[item.useCase]).addTo(graph);
         });
       }
     },
+
+    // FIX 1: Activity — skip 'else' keyword; don't render it as an action node
     activity: {
       template: 'start\nthen validate input\nif valid\nthen process request\nthen show success\nend',
       parse(text) {
-        const nodes = splitStatements(text).map((line) => {
-          if (/^start$/i.test(line)) return { type: 'start', label: 'Start' };
-          if (/^end$/i.test(line)) return { type: 'end', label: 'End' };
-          if (/^if\s+/i.test(line)) return { type: 'decision', label: line };
-          if (/^then\s+/i.test(line)) return { type: 'action', label: line.replace(/^then\s+/i, '') };
-          return { type: 'action', label: line };
-        });
+        const nodes = splitStatements(text)
+          .filter((line) => !/^else$/i.test(line))   // <-- skip bare 'else' lines
+          .map((line) => {
+            if (/^start$/i.test(line)) return { type: 'start', label: 'Start' };
+            if (/^end$/i.test(line)) return { type: 'end', label: 'End' };
+            if (/^if\s+/i.test(line)) return { type: 'decision', label: line };
+            if (/^then\s+/i.test(line)) return { type: 'action', label: line.replace(/^then\s+/i, '') };
+            return { type: 'action', label: line };
+          });
         if (!nodes.length) return [{ type: 'start', label: 'Start' }, { type: 'action', label: 'Process' }, { type: 'end', label: 'End' }];
         if (!nodes.some((n) => n.type === 'start')) nodes.unshift({ type: 'start', label: 'Start' });
         if (!nodes.some((n) => n.type === 'end')) nodes.push({ type: 'end', label: 'End' });
@@ -265,6 +322,7 @@
       }
     },
 
+    // FIX 4: Component — remove small port rectangles; show ports as text instead
     component: {
       template: 'component UserInterface\ncomponent AuthService\ncomponent Database\nUserInterface connects AuthService\nAuthService connects Database',
       parse(text) {
@@ -290,24 +348,22 @@
           const x = 70 + (i % 3) * 280;
           const y = 60 + Math.floor(i / 3) * 170;
 
+          // Single clean rectangle — no overlapping port rectangles
           const shape = new joint.shapes.standard.Rectangle();
           shape.position(x, y);
-          shape.resize(230, 110);
-          shape.attr({ body: { fill: '#e8f5ff', stroke: '#0b6fa4', strokeWidth: 2, rx: 8, ry: 8 }, label: { text: `«component»\n${name}`, fontSize: 12 } });
+          shape.resize(230, 90);
+          shape.attr({
+            body: { fill: '#e8f5ff', stroke: '#0b6fa4', strokeWidth: 2, rx: 8, ry: 8 },
+            label: {
+              text: `«component»\n${name}`,
+              fontSize: 12,
+              refX: 0.5,
+              refY: 0.5,
+              textAnchor: 'middle',
+              textVerticalAnchor: 'middle'
+            }
+          });
           shape.addTo(graph);
-
-          const icon1 = new joint.shapes.standard.Rectangle();
-          icon1.position(x + 185, y + 12);
-          icon1.resize(18, 12);
-          icon1.attr({ body: { fill: '#c7e9ff', stroke: '#0b6fa4', strokeWidth: 1 }, label: { text: '' } });
-          icon1.addTo(graph);
-
-          const icon2 = new joint.shapes.standard.Rectangle();
-          icon2.position(x + 185, y + 30);
-          icon2.resize(18, 12);
-          icon2.attr({ body: { fill: '#c7e9ff', stroke: '#0b6fa4', strokeWidth: 1 }, label: { text: '' } });
-          icon2.addTo(graph);
-
           map[name] = shape;
         });
 
@@ -364,6 +420,8 @@
         });
       }
     },
+
+    // FIX 2: Sequence — dynamic lifeline height based on actual message count
     sequence: {
       template: 'User sends login request to AuthService\nAuthService calls verify credentials on Database\nDatabase sends result to AuthService\nAuthService sends token to User',
       parse(text) {
@@ -372,7 +430,8 @@
         splitStatements(text).forEach((line) => {
           const sendsMatch = line.match(/^([\w-]+)\s+sends\s+(.+?)\s+to\s+([\w-]+)$/i);
           const callsMatch = line.match(/^([\w-]+)\s+calls\s+(.+?)\s+on\s+([\w-]+)$/i);
-          const match = sendsMatch || callsMatch;
+          const respondsMatch = line.match(/^([\w-]+)\s+responds\s+(.+?)\s+to\s+([\w-]+)$/i);
+          const match = sendsMatch || callsMatch || respondsMatch;
           if (!match) return;
           const [, from, message, to] = match;
           participants.add(from); participants.add(to);
@@ -382,19 +441,35 @@
       },
       render(parsed) {
         graph.clear();
+
+        const MSG_SPACING = 58;   // vertical gap between messages
+        const HEAD_Y = 20;        // top of participant boxes
+        const HEAD_H = 46;        // height of participant box
+        const FIRST_MSG_Y = HEAD_Y + HEAD_H + 48;  // y of first message arrow
+
+        // Lifeline only extends as far as the last message needs
+        const lifelineBottom = FIRST_MSG_Y + Math.max(parsed.messages.length, 1) * MSG_SPACING + 40;
+
         const heads = {};
         parsed.participants.forEach((name, i) => {
           const x = 90 + i * 220;
           const head = new joint.shapes.standard.Rectangle();
-          head.position(x, 20); head.resize(170, 46);
+          head.position(x, HEAD_Y); head.resize(170, HEAD_H);
           head.attr({ body: { fill: '#e6f8ff', stroke: '#007c99', strokeWidth: 2 }, label: { text: name, fontSize: 12 } });
-          head.addTo(graph); heads[name] = head;
-          makeLink({ x: x + 85, y: 66 }, { x: x + 85, y: 540 }, { noMarker: true })
-            .attr('line/stroke', '#6e7d99').attr('line/strokeDasharray', '6 4').addTo(graph);
+          head.addTo(graph);
+          heads[name] = head;
+
+          // Lifeline — length driven by message count, not hardcoded
+          makeLink(
+            { x: x + 85, y: HEAD_Y + HEAD_H },
+            { x: x + 85, y: lifelineBottom },
+            { noMarker: true }
+          ).attr('line/stroke', '#6e7d99').attr('line/strokeDasharray', '6 4').addTo(graph);
         });
+
         parsed.messages.forEach((msg, i) => {
           if (!heads[msg.from] || !heads[msg.to]) return;
-          const y = 110 + i * 58;
+          const y = FIRST_MSG_Y + i * MSG_SPACING;
           const fromX = heads[msg.from].position().x + 85;
           const toX = heads[msg.to].position().x + 85;
           makeLink({ x: fromX, y }, { x: toX, y }, { label: msg.message }).addTo(graph);
@@ -533,7 +608,6 @@
 
   function loadJSON(file) {
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -546,11 +620,7 @@
         setStatus('Invalid JSON file. Please upload a valid diagram JSON.', 'error');
       }
     };
-
-    reader.onerror = () => {
-      setStatus('Failed to read JSON file.', 'error');
-    };
-
+    reader.onerror = () => { setStatus('Failed to read JSON file.', 'error'); };
     reader.readAsText(file);
   }
 
